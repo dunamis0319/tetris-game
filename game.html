@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>簡易テトリス</title>
+    <style>
+        canvas {
+            border: 2px solid black;
+            display: block;
+            margin: auto;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="200" height="400"></canvas>
+    <audio id="dropSound" src="drop.mp3"></audio>
+    <audio id="clearSound" src="clear.mp3"></audio>
+    <audio id="gameOverSound" src="gameover.mp3"></audio>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const dropSound = document.getElementById("dropSound");
+        const clearSound = document.getElementById("clearSound");
+        const gameOverSound = document.getElementById("gameOverSound");
+        
+        const COLS = 10, ROWS = 20, BLOCK_SIZE = 20;
+        let board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+
+        const TETROMINOES = [
+            [[1, 1, 1, 1]], // I
+            [[1, 1], [1, 1]], // O
+            [[0, 1, 0], [1, 1, 1]], // T
+            [[1, 0, 0], [1, 1, 1]], // L
+            [[0, 0, 1], [1, 1, 1]], // J
+            [[1, 1, 0], [0, 1, 1]], // S
+            [[0, 1, 1], [1, 1, 0]]  // Z
+        ];
+
+        let piece = { x: 4, y: 0, shape: TETROMINOES[Math.floor(Math.random() * TETROMINOES.length)] };
+
+        function drawBlock(x, y, color = "blue") {
+            ctx.fillStyle = color;
+            ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+            ctx.strokeStyle = "black";
+            ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            board.forEach((row, y) => row.forEach((cell, x) => { if (cell) drawBlock(x, y); }));
+            piece.shape.forEach((row, dy) => row.forEach((cell, dx) => {
+                if (cell) drawBlock(piece.x + dx, piece.y + dy, "red");
+            }));
+        }
+
+        function isValidMove(newX, newY, newShape) {
+            return newShape.every((row, dy) => row.every((cell, dx) => {
+                let x = newX + dx;
+                let y = newY + dy;
+                return !cell || (x >= 0 && x < COLS && y < ROWS && !board[y][x]);
+            }));
+        }
+
+        function rotatePiece() {
+            const rotated = piece.shape[0].map((_, i) => piece.shape.map(row => row[i])).reverse();
+            if (isValidMove(piece.x, piece.y, rotated)) {
+                piece.shape = rotated;
+            }
+        }
+
+        function movePiece(dx, dy) {
+            if (isValidMove(piece.x + dx, piece.y + dy, piece.shape)) {
+                piece.x += dx;
+                piece.y += dy;
+            }
+        }
+
+        function clearLines() {
+            let cleared = 0;
+            board = board.filter(row => {
+                if (row.every(cell => cell !== 0)) {
+                    cleared++;
+                    return false;
+                }
+                return true;
+            });
+            while (board.length < ROWS) {
+                board.unshift(Array(COLS).fill(0));
+            }
+            if (cleared > 0) {
+                clearSound.play();
+            }
+        }
+
+        function update() {
+            if (isValidMove(piece.x, piece.y + 1, piece.shape)) {
+                piece.y++;
+            } else {
+                piece.shape.forEach((row, dy) => row.forEach((cell, dx) => {
+                    if (cell) board[piece.y + dy][piece.x + dx] = 1;
+                }));
+                dropSound.play();
+                clearLines();
+                piece = { x: 4, y: 0, shape: TETROMINOES[Math.floor(Math.random() * TETROMINOES.length)] };
+                if (!isValidMove(piece.x, piece.y, piece.shape)) {
+                    gameOverSound.play();
+                    alert("Game Over");
+                    board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+                }
+            }
+            draw();
+        }
+
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft") movePiece(-1, 0);
+            if (e.key === "ArrowRight") movePiece(1, 0);
+            if (e.key === "ArrowUp") rotatePiece();
+            if (e.key === "ArrowDown") movePiece(0, 1);
+            draw();
+        });
+
+        setInterval(update, 500);
+    </script>
+</body>
+</html>
